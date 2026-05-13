@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>org.arielrivera.8bit-display.BLEWritePackets</string>
+  <key>CFBundleExecutable</key>
+  <string>BLEWritePackets</string>
+  <key>CFBundleName</key>
+  <string>BLEWritePackets</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0</string>
+  <key>NSBluetoothAlwaysUsageDescription</key>
+  <string>8bit-display uses Bluetooth to send images to the Matrix LED Display.</string>
+  <key>NSBluetoothPeripheralUsageDescription</key>
+  <string>8bit-display uses Bluetooth to send images to the Matrix LED Display.</string>
+</dict>
+</plist>

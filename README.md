@@ -58,8 +58,23 @@ Backends:
 - `dry-run`: prints packet info without touching Bluetooth.
 - `serial`: diagnostic only; the macOS pseudo-port did not visibly update the
   display in local tests.
-- `swift-ble`: intended macOS BLE backend once local Swift/CoreBluetooth tooling
-  is repaired.
+- `native-ble`: macOS CoreBluetooth backend. This is the working path on this
+  Mac.
+
+Build the native macOS BLE helper:
+
+```sh
+scripts/build_native.sh
+```
+
+The helper is packaged as a small macOS `.app` so Bluetooth privacy permission
+works correctly. The first run may prompt for Bluetooth access.
+
+Send one image through the native BLE backend:
+
+```sh
+.venv/bin/python scripts/displayd.py --config config.single.example.yaml --backend native-ble --once
+```
 
 ## Quick connection check
 
@@ -69,8 +84,8 @@ With the device paired and connected in macOS Bluetooth settings:
 python3 scripts/probe_serial.py
 ```
 
-The first milestone is simply opening the serial port reliably. Sending display
-commands comes after the protocol is understood.
+This serial path was useful for diagnostics, but visible display updates now go
+through BLE GATT with the `native-ble` backend.
 
 ## Generate a test image command sequence
 
@@ -80,7 +95,8 @@ This prints the packets without writing to the display:
 python3 scripts/send_test_pattern.py
 ```
 
-This sends a temporary 16x16 gradient to the display:
+This sends a temporary 16x16 gradient over the diagnostic serial path, which did
+not visibly update this display in local tests:
 
 ```sh
 python3 scripts/send_test_pattern.py --send
@@ -95,7 +111,10 @@ python3 scripts/serial_command.py power-on
 ```
 
 The known working implementations use BLE GATT rather than the macOS serial
-pseudo-port. To test that path:
+pseudo-port. Python BLE currently crashes on this macOS setup, so the local
+controller uses the native CoreBluetooth helper above.
+
+Python BLE diagnostic scripts are kept here for comparison:
 
 ```sh
 python3 -m venv .venv
@@ -105,13 +124,7 @@ python3 scripts/ble_scan.py
 python3 scripts/ble_send_test_pattern.py --send
 ```
 
-If Python BLE crashes on macOS, use the native Swift/CoreBluetooth sender:
-
-```sh
-swift swift/BLESendTestPattern.swift --send
-```
-
-You can also send a solid color:
+You can also generate serial diagnostic packets for a solid color:
 
 ```sh
 python3 scripts/send_test_pattern.py --pattern solid --color 255,0,0 --send

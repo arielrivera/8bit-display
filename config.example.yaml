@@ -13,4 +13,3 @@ mode:
   single_image: "./images/current.png"
   clock_style: "digital"
   clock_24h: false
-

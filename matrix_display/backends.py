@@ -64,16 +64,16 @@ class SerialBackend:
 
 
 @dataclass
-class SwiftBLEBackend:
-    """Call the native Swift/CoreBluetooth helper to write packets.
+class NativeBLEBackend:
+    """Call the native CoreBluetooth helper to write packets.
 
-    This is the intended macOS backend once local Command Line Tools can build
-    CoreBluetooth Swift code.
+    This is the intended macOS backend.
     """
 
-    helper_path: Path = Path("swift/BLEWritePackets.swift")
+    app_path: Path = Path("build/BLEWritePackets.app")
     device_name: str = "MI Matrix Display"
     packet_delay: float = 0.05
+    timeout: float = 30.0
 
     def send_packets(self, packets: list[bytes]) -> None:
         with tempfile.NamedTemporaryFile("w", suffix=".packets", delete=False) as packet_file:
@@ -82,23 +82,50 @@ class SwiftBLEBackend:
                 packet_file.write("\n")
             packet_path = packet_file.name
 
+        log_file = tempfile.NamedTemporaryFile("w", suffix=".log", delete=False)
+        log_path = log_file.name
+        log_file.close()
+
         try:
-            subprocess.run(
-                [
-                    "swift",
-                    str(self.helper_path),
-                    "--send",
-                    "--name",
-                    self.device_name,
-                    "--delay",
-                    str(self.packet_delay),
-                    "--packets",
-                    packet_path,
-                ],
-                check=True,
+            self.app_path = Path(self.app_path)
+            if not self.app_path.exists():
+                raise FileNotFoundError(f"native BLE helper not built: {self.app_path}")
+
+            command = [
+                "open",
+                "-n",
+                "-W",
+                str(self.app_path),
+                "--args",
+                "--send",
+                "--name",
+                self.device_name,
+                "--delay",
+                str(self.packet_delay),
+                "--packets",
+                packet_path,
+                "--log",
+                log_path,
+            ]
+            result = subprocess.run(command, text=True, capture_output=True, check=False)
+
+            deadline = time.monotonic() + self.timeout
+            log_text = Path(log_path).read_text(encoding="utf-8", errors="replace")
+            while "Done" not in log_text and "Timed out" not in log_text and time.monotonic() < deadline:
+                time.sleep(0.1)
+                log_text = Path(log_path).read_text(encoding="utf-8", errors="replace")
+
+            if result.returncode != 0 or "Done" not in log_text:
+                detail = log_text.strip() or result.stderr.strip() or result.stdout.strip()
+                raise RuntimeError(f"native BLE send failed: {detail}")
+
+            print(
+                f"native-ble: sent {len(packets)} packets to {self.device_name} "
+                f"using {self.app_path}"
             )
         finally:
             Path(packet_path).unlink(missing_ok=True)
+            Path(log_path).unlink(missing_ok=True)
 
 
 def make_backend(kind: str, device_name: str, show_packets: bool = False) -> DisplayBackend:
@@ -106,7 +133,6 @@ def make_backend(kind: str, device_name: str, show_packets: bool = False) -> Dis
         return DryRunBackend(show_packets=show_packets)
     if kind == "serial":
         return SerialBackend()
-    if kind == "swift-ble":
-        return SwiftBLEBackend(device_name=device_name)
+    if kind in {"native-ble", "swift-ble"}:
+        return NativeBLEBackend(device_name=device_name)
     raise ValueError(f"unknown backend {kind!r}")
-

@@ -18,7 +18,7 @@ from matrix_display.controller import DisplayController
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, default=Path("config.example.yaml"))
-    parser.add_argument("--backend", choices=["dry-run", "serial", "swift-ble"])
+    parser.add_argument("--backend", choices=["dry-run", "serial", "native-ble", "swift-ble"])
     parser.add_argument("--once", action="store_true", help="send one update and exit")
     parser.add_argument("--show-packets", action="store_true", help="print packet hex in dry-run mode")
     args = parser.parse_args()
@@ -37,4 +37,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
