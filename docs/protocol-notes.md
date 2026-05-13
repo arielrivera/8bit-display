@@ -27,6 +27,20 @@
 - Dry-run the generated command sequence.
 - Send a temporary generated image before trying saved images.
 
+## Local findings
+
+- macOS creates `/dev/cu.MIMatrixDisplay`, and scripts can open/write to it.
+- Writing known protocol packets to `/dev/cu.MIMatrixDisplay` did not visibly
+  change the display, even after setting 9600 8N1 and draining writes.
+- Chrome Web Bluetooth sees the display through the known BLE service.
+- The Web Bluetooth app can connect through the `ffd0` service and uses the
+  `ffd1` write characteristic, so future automation should target BLE GATT.
+- Python `bleak` on the current Homebrew Python 3.13 install aborts inside the
+  macOS CoreBluetooth bridge during scans.
+- Swift/CoreBluetooth is currently blocked by a local Command Line Tools
+  module-map conflict. Installing/updating full Xcode or repairing CLT should
+  make the native Swift sender viable.
+
 ## Sources
 
 - `offe/mi-led-display` includes Python BLE scripts and snoop logs.

@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import termios
 import time
 from pathlib import Path
 
@@ -36,10 +37,21 @@ def parse_color(value: str) -> tuple[int, int, int]:
 
 
 def write_packets(port: str, packets: list[bytes], delay: float) -> None:
-    fd = os.open(port, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+    fd = os.open(port, os.O_RDWR | os.O_NOCTTY)
     try:
+        attrs = termios.tcgetattr(fd)
+        attrs[4] = termios.B9600
+        attrs[5] = termios.B9600
+        attrs[2] = attrs[2] | termios.CLOCAL | termios.CREAD
+        attrs[2] = attrs[2] & ~termios.PARENB
+        attrs[2] = attrs[2] & ~termios.CSTOPB
+        attrs[2] = attrs[2] & ~termios.CSIZE
+        attrs[2] = attrs[2] | termios.CS8
+        termios.tcsetattr(fd, termios.TCSANOW, attrs)
+
         for i, packet in enumerate(packets, start=1):
             os.write(fd, packet)
+            termios.tcdrain(fd)
             print(f"sent packet {i}/{len(packets)}: {len(packet)} bytes")
             time.sleep(delay)
     finally:
@@ -71,4 +83,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
