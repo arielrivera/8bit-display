@@ -20,11 +20,12 @@
   - eight image chunks
   - temp image write disable: `bc 0f f2 08 09 55`
 - Each image chunk is two rows: 32 RGB pixels, 96 RGB bytes.
-- A saved/static image wraps the temporary image sequence:
-  - reset: `bc 00 15 15 55`
-  - static image write enable: `bc 00 11 f1 02 55`
+- A saved/static image uses the app-observed static-write sequence:
+  - temp image write disable/recover: `bc 0f f2 08 09 55`
+  - static image write enable: `bc 00 11 f1 03 55`
   - temporary image sequence
-  - static image write disable: `bc 00 11 f2 03 55`
+  - static image write disable: `bc 00 11 f2 04 55`
+  - start slideshow/playback mode: `bc 00 12 12 55`
 
 ## First safe tests
 

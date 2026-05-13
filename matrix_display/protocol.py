@@ -37,8 +37,10 @@ RESET = packet(bytes([0x00, 0x15]))
 START_SLIDESHOW_MODE = packet(bytes([0x00, 0x12]))
 CLEAR_GRAFFITI_MODE = packet(bytes([0x00, 0x0D]))
 START_GRAFFITI_MODE = packet(bytes([0x00, 0x01]))
-STATIC_IMAGE_WRITE_ENABLE = packet(bytes([0x00, 0x11, 0xF1]))
-STATIC_IMAGE_WRITE_DISABLE = packet(bytes([0x00, 0x11, 0xF2]))
+# These two static-image commands are observed from the official-app capture.
+# Their final byte does not match the usual additive checksum helper.
+STATIC_IMAGE_WRITE_ENABLE = bytes.fromhex("bc0011f10355")
+STATIC_IMAGE_WRITE_DISABLE = bytes.fromhex("bc0011f20455")
 TEMP_IMAGE_WRITE_ENABLE = packet(bytes([0x0F, 0xF1, 0x08]))
 TEMP_IMAGE_WRITE_DISABLE = packet(bytes([0x0F, 0xF2, 0x08]))
 
@@ -96,7 +98,11 @@ def image_packets(
 
     packets.append(TEMP_IMAGE_WRITE_DISABLE)
     if save:
-        packets = [RESET, STATIC_IMAGE_WRITE_ENABLE] + packets + [STATIC_IMAGE_WRITE_DISABLE]
+        packets = (
+            [TEMP_IMAGE_WRITE_DISABLE, STATIC_IMAGE_WRITE_ENABLE]
+            + packets
+            + [STATIC_IMAGE_WRITE_DISABLE, START_SLIDESHOW_MODE]
+        )
     return packets
 
 
