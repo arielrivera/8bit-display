@@ -40,6 +40,11 @@ cat > "$PLIST" <<PLIST
   </array>
   <key>WorkingDirectory</key>
   <string>$ROOT</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PYTHONUNBUFFERED</key>
+    <string>1</string>
+  </dict>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
@@ -60,4 +65,3 @@ launchctl kickstart -k "gui/$(id -u)/$LABEL"
 echo "Installed and started $LABEL"
 echo "Config: $CONFIG"
 echo "Logs: $LOG_DIR"
-

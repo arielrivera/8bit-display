@@ -92,12 +92,12 @@ class DisplayController:
         while True:
             images = list_images(self.config.paths.image_folder)
             if not images:
-                print(f"no images found in {self.config.paths.image_folder}; sleeping")
+                print(f"no images found in {self.config.paths.image_folder}; sleeping", flush=True)
                 time.sleep(10)
                 continue
 
             path = images[index % len(images)]
-            print(f"carousel: sending {path}")
+            print(f"carousel: sending {path}", flush=True)
             self.send_file(path)
             index += 1
             time.sleep(self.config.mode.carousel_seconds)
@@ -107,13 +107,13 @@ class DisplayController:
         last_mtime: float | None = None
         while True:
             if not path.exists():
-                print(f"single image does not exist: {path}")
+                print(f"single image does not exist: {path}", flush=True)
                 time.sleep(10)
                 continue
 
             mtime = path.stat().st_mtime
             if last_mtime != mtime:
-                print(f"single: sending {path}")
+                print(f"single: sending {path}", flush=True)
                 self.send_file(path)
                 last_mtime = mtime
             time.sleep(5)
@@ -124,9 +124,8 @@ class DisplayController:
             now = datetime.now()
             minute_key = now.strftime("%Y-%m-%d %H:%M")
             if minute_key != last_minute:
-                print(f"clock: sending {minute_key}")
+                print(f"clock: sending {minute_key}", flush=True)
                 image = clock_image(self.config.mode.clock_style, now, clock_24h=self.config.mode.clock_24h)
                 self.send_image(image, f"clock:{self.config.mode.clock_style}:{minute_key}")
                 last_minute = minute_key
             time.sleep(1)
-

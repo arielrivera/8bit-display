@@ -121,7 +121,8 @@ class NativeBLEBackend:
 
             print(
                 f"native-ble: sent {len(packets)} packets to {self.device_name} "
-                f"using {self.app_path}"
+                f"using {self.app_path}",
+                flush=True,
             )
         finally:
             Path(packet_path).unlink(missing_ok=True)

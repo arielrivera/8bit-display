@@ -25,6 +25,7 @@ def main() -> int:
 
     config = load_config(args.config)
     backend_name = args.backend or config.device.backend
+    print(f"displayd: config={args.config} backend={backend_name} once={args.once}", flush=True)
     backend = make_backend(backend_name, config.device.name, show_packets=args.show_packets)
     controller = DisplayController(config, backend)
 
