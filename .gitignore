@@ -4,4 +4,6 @@ __pycache__/
 .venv312/
 build/
 *.pyc
+config.local.yaml
+logs/
 state.json

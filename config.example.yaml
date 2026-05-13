@@ -1,6 +1,6 @@
 device:
   name: "MI Matrix Display"
-  backend: "dry-run"
+  backend: "native-ble"
   gamma: 0.6
 
 paths:

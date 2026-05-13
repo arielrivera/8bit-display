@@ -12,7 +12,7 @@ import yaml
 @dataclass(frozen=True)
 class DeviceConfig:
     name: str = "MI Matrix Display"
-    backend: str = "dry-run"
+    backend: str = "native-ble"
     gamma: float = 0.6
 
 
@@ -70,4 +70,3 @@ def load_config(path: Path) -> AppConfig:
             clock_24h=bool(mode_raw.get("clock_24h", ModeConfig.clock_24h)),
         ),
     )
-

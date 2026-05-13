@@ -8,6 +8,9 @@ paths:
   state_file: "./state.json"
 
 mode:
-  type: "clock"
+  type: "carousel"
+  carousel_seconds: 300
+  single_image: "./images/current.png"
   clock_style: "digital"
   clock_24h: false
+

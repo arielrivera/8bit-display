@@ -1,6 +1,6 @@
 device:
   name: "MI Matrix Display"
-  backend: "dry-run"
+  backend: "native-ble"
   gamma: 0.6
 
 paths:
@@ -11,4 +11,3 @@ mode:
   type: "clock"
   clock_style: "pixel-art"
   clock_24h: false
-

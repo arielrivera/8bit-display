@@ -27,20 +27,38 @@ python3 -m venv .venv
 python3 -m pip install -r requirements.txt
 ```
 
-Run one dry-run update using the example config:
+Generate sample images and build the native macOS BLE helper:
 
 ```sh
 .venv/bin/python scripts/make_sample_images.py
-.venv/bin/python scripts/displayd.py --once --show-packets
+scripts/build_native.sh
+```
+
+Create a local config you can edit without committing machine-specific changes:
+
+```sh
+cp config.local.example.yaml config.local.yaml
+```
+
+Run one dry-run update:
+
+```sh
+.venv/bin/python scripts/displayd.py --config config.local.yaml --backend dry-run --once --show-packets
+```
+
+Send one image to the display:
+
+```sh
+.venv/bin/python scripts/displayd.py --config config.single.example.yaml --backend native-ble --once
 ```
 
 Run the daemon loop:
 
 ```sh
-.venv/bin/python scripts/displayd.py --config config.example.yaml
+.venv/bin/python scripts/displayd.py --config config.local.yaml
 ```
 
-Modes are configured in `config.example.yaml`:
+Modes are configured in `config.local.yaml`:
 
 - `carousel`: sends each image in `paths.image_folder` sequentially.
 - `single`: sends `mode.single_image` and re-sends when that file changes.
@@ -49,6 +67,7 @@ Modes are configured in `config.example.yaml`:
 Example configs:
 
 - `config.example.yaml`: carousel mode.
+- `config.local.example.yaml`: local machine template.
 - `config.single.example.yaml`: single-image mode.
 - `config.clock.example.yaml`: clock mode.
 - `config.clock-pixel-art.example.yaml`: stylized analog clock mode.
@@ -75,6 +94,66 @@ Send one image through the native BLE backend:
 ```sh
 .venv/bin/python scripts/displayd.py --config config.single.example.yaml --backend native-ble --once
 ```
+
+## Run at Login
+
+Install the macOS LaunchAgent:
+
+```sh
+scripts/install_launch_agent.sh
+```
+
+The installer:
+
+- creates `config.local.yaml` from `config.local.example.yaml` if needed;
+- builds `build/BLEWritePackets.app`;
+- creates `~/Library/LaunchAgents/org.arielrivera.8bit-display.plist`;
+- starts the controller immediately;
+- writes logs to `logs/displayd.out.log` and `logs/displayd.err.log`.
+
+Check service status:
+
+```sh
+launchctl print gui/$(id -u)/org.arielrivera.8bit-display
+```
+
+Restart after editing `config.local.yaml`:
+
+```sh
+launchctl kickstart -k gui/$(id -u)/org.arielrivera.8bit-display
+```
+
+Stop without uninstalling:
+
+```sh
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/org.arielrivera.8bit-display.plist
+```
+
+## Uninstall
+
+Unload and remove the LaunchAgent:
+
+```sh
+scripts/uninstall_launch_agent.sh
+```
+
+Optional full local cleanup:
+
+```sh
+rm -rf build logs .venv .venv312
+rm -f config.local.yaml state.json
+```
+
+To remove the repository too:
+
+```sh
+cd ..
+rm -rf 8bit-display
+```
+
+The uninstall script intentionally leaves project files, `config.local.yaml`,
+logs, virtual environments, and build artifacts in place so it does not delete
+anything you may want to inspect or reuse.
 
 ## Quick connection check
 
