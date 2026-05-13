@@ -12,10 +12,54 @@ from a Mac.
 - USB appears to be power-only on this Mac; it did not expose a usable serial
   device.
 
-## Current goal
+## Current Goal
 
-Discover the serial protocol used by the official app, then build scripts that
-can upload images, text, and animations from a computer.
+Run a local controller that can update the display from a folder, a selected
+image, or a generated clock image.
+
+## Local Controller
+
+Create a virtual environment and install dependencies:
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python3 -m pip install -r requirements.txt
+```
+
+Run one dry-run update using the example config:
+
+```sh
+.venv/bin/python scripts/make_sample_images.py
+.venv/bin/python scripts/displayd.py --once --show-packets
+```
+
+Run the daemon loop:
+
+```sh
+.venv/bin/python scripts/displayd.py --config config.example.yaml
+```
+
+Modes are configured in `config.example.yaml`:
+
+- `carousel`: sends each image in `paths.image_folder` sequentially.
+- `single`: sends `mode.single_image` and re-sends when that file changes.
+- `clock`: generates a new clock image each minute.
+
+Example configs:
+
+- `config.example.yaml`: carousel mode.
+- `config.single.example.yaml`: single-image mode.
+- `config.clock.example.yaml`: clock mode.
+- `config.clock-pixel-art.example.yaml`: stylized analog clock mode.
+
+Backends:
+
+- `dry-run`: prints packet info without touching Bluetooth.
+- `serial`: diagnostic only; the macOS pseudo-port did not visibly update the
+  display in local tests.
+- `swift-ble`: intended macOS BLE backend once local Swift/CoreBluetooth tooling
+  is repaired.
 
 ## Quick connection check
 

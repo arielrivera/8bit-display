@@ -1,0 +1,14 @@
+device:
+  name: "MI Matrix Display"
+  backend: "dry-run"
+  gamma: 0.6
+
+paths:
+  image_folder: "./images"
+  state_file: "./state.json"
+
+mode:
+  type: "clock"
+  clock_style: "digital"
+  clock_24h: false
+
