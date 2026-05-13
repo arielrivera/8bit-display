@@ -37,6 +37,8 @@ RESET = packet(bytes([0x00, 0x15]))
 START_SLIDESHOW_MODE = packet(bytes([0x00, 0x12]))
 CLEAR_GRAFFITI_MODE = packet(bytes([0x00, 0x0D]))
 START_GRAFFITI_MODE = packet(bytes([0x00, 0x01]))
+STATIC_IMAGE_WRITE_ENABLE = packet(bytes([0x00, 0x11, 0xF1]))
+STATIC_IMAGE_WRITE_DISABLE = packet(bytes([0x00, 0x11, 0xF2]))
 TEMP_IMAGE_WRITE_ENABLE = packet(bytes([0x0F, 0xF1, 0x08]))
 TEMP_IMAGE_WRITE_DISABLE = packet(bytes([0x0F, 0xF2, 0x08]))
 
@@ -72,8 +74,17 @@ def normalize_rgb_pixels(pixels: Iterable[tuple[int, int, int]], gamma: float = 
     return normalized
 
 
-def image_packets(pixels: Iterable[tuple[int, int, int]], gamma: float = 0.6) -> list[bytes]:
-    """Return packets to display a temporary 16x16 RGB image."""
+def image_packets(
+    pixels: Iterable[tuple[int, int, int]],
+    gamma: float = 0.6,
+    save: bool = False,
+) -> list[bytes]:
+    """Return packets to display a 16x16 RGB image.
+
+    The temporary sequence can be overridden by whatever the device is already
+    playing. The saved sequence mirrors the app's save flow and makes the image
+    stick by wrapping the temp image write in static-image write commands.
+    """
     normalized = normalize_rgb_pixels(pixels, gamma=gamma)
     packets = [TEMP_IMAGE_WRITE_ENABLE]
 
@@ -84,6 +95,8 @@ def image_packets(pixels: Iterable[tuple[int, int, int]], gamma: float = 0.6) ->
         packets.append(temp_image_chunk(chunk + 1, rgb))
 
     packets.append(TEMP_IMAGE_WRITE_DISABLE)
+    if save:
+        packets = [RESET, STATIC_IMAGE_WRITE_ENABLE] + packets + [STATIC_IMAGE_WRITE_DISABLE]
     return packets
 
 
@@ -98,4 +111,3 @@ def gradient_pixels() -> list[tuple[int, int, int]]:
 
 def solid_pixels(r: int, g: int, b: int) -> list[tuple[int, int, int]]:
     return [(r, g, b)] * PIXELS
-

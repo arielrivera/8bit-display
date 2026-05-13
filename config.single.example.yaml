@@ -2,6 +2,7 @@ device:
   name: "MI Matrix Display"
   backend: "native-ble"
   gamma: 0.6
+  save: true
 
 paths:
   image_folder: "./images"

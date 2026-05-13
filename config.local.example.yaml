@@ -2,6 +2,7 @@ device:
   name: "MI Matrix Display"
   backend: "native-ble"
   gamma: 0.6
+  save: true
 
 paths:
   image_folder: "./images"
@@ -13,4 +14,3 @@ mode:
   single_image: "./images/current.png"
   clock_style: "digital"
   clock_24h: false
-

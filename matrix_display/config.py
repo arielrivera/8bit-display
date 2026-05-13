@@ -14,6 +14,7 @@ class DeviceConfig:
     name: str = "MI Matrix Display"
     backend: str = "native-ble"
     gamma: float = 0.6
+    save: bool = True
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,14 @@ def _expand_path(value: str | Path) -> Path:
     return Path(value).expanduser()
 
 
+def _as_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
 def load_config(path: Path) -> AppConfig:
     raw: dict[str, Any] = {}
     if path.exists():
@@ -57,6 +66,7 @@ def load_config(path: Path) -> AppConfig:
             name=device_raw.get("name", DeviceConfig.name),
             backend=device_raw.get("backend", DeviceConfig.backend),
             gamma=float(device_raw.get("gamma", DeviceConfig.gamma)),
+            save=_as_bool(device_raw.get("save", DeviceConfig.save)),
         ),
         paths=PathConfig(
             image_folder=_expand_path(paths_raw.get("image_folder", PathConfig.image_folder)),
@@ -67,6 +77,6 @@ def load_config(path: Path) -> AppConfig:
             carousel_seconds=int(mode_raw.get("carousel_seconds", ModeConfig.carousel_seconds)),
             single_image=_expand_path(mode_raw.get("single_image", ModeConfig.single_image)),
             clock_style=mode_raw.get("clock_style", ModeConfig.clock_style),
-            clock_24h=bool(mode_raw.get("clock_24h", ModeConfig.clock_24h)),
+            clock_24h=_as_bool(mode_raw.get("clock_24h", ModeConfig.clock_24h)),
         ),
     )

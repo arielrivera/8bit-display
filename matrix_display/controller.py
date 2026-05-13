@@ -39,7 +39,7 @@ class DisplayController:
 
     def send_image(self, image: Image.Image, label: str) -> None:
         pixels = image_to_pixels(image)
-        packets = image_packets(pixels, gamma=self.config.device.gamma)
+        packets = image_packets(pixels, gamma=self.config.device.gamma, save=self.config.device.save)
         self.backend.send_packets(packets)
         self.write_state(label)
 

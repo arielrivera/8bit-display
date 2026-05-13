@@ -80,6 +80,12 @@ Backends:
 - `native-ble`: macOS CoreBluetooth backend. This is the working path on this
   Mac.
 
+`device.save: true` is the recommended default. It uses the same save-style
+command wrapper as the browser app so the image stays on the panel instead of
+briefly freezing the currently saved animation and then letting that animation
+resume. Avoid very short carousel intervals in saved mode because each update
+writes to the display's stored image slot.
+
 Build the native macOS BLE helper:
 
 ```sh

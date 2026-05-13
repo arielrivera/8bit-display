@@ -20,6 +20,11 @@
   - eight image chunks
   - temp image write disable: `bc 0f f2 08 09 55`
 - Each image chunk is two rows: 32 RGB pixels, 96 RGB bytes.
+- A saved/static image wraps the temporary image sequence:
+  - reset: `bc 00 15 15 55`
+  - static image write enable: `bc 00 11 f1 02 55`
+  - temporary image sequence
+  - static image write disable: `bc 00 11 f2 03 55`
 
 ## First safe tests
 
@@ -35,6 +40,9 @@
 - Chrome Web Bluetooth sees the display through the known BLE service.
 - The Web Bluetooth app can connect through the `ffd0` service and uses the
   `ffd1` write characteristic, so future automation should target BLE GATT.
+- Sending only the temporary image sequence can freeze the currently saved
+  animation briefly and then let that saved animation resume. Saved/static mode
+  is needed when the controller should replace what the panel is showing.
 - Python `bleak` on the current Homebrew Python 3.13 install aborts inside the
   macOS CoreBluetooth bridge during scans.
 - Swift/CoreBluetooth is currently blocked by a local Command Line Tools
