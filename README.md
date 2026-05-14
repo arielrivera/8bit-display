@@ -161,6 +161,15 @@ The uninstall script intentionally leaves project files, `config.local.yaml`,
 logs, virtual environments, and build artifacts in place so it does not delete
 anything you may want to inspect or reuse.
 
+## Image Assets
+
+The carousel scans `paths.image_folder` recursively, so image packs can live in
+subfolders under `images/`.
+
+`images/rpg_potions_16x16/` contains extracted 16x16 RPG food and potion tiles
+from a CC BY-SA 3.0 asset pack by Bonsaiheldin. See
+`images/rpg_potions_16x16/CREDITS.txt` for attribution and license details.
+
 ## Quick connection check
 
 With the device paired and connected in macOS Bluetooth settings:

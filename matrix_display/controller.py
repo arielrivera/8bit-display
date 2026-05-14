@@ -29,7 +29,7 @@ class DisplayState:
 def list_images(folder: Path) -> list[Path]:
     if not folder.exists():
         folder.mkdir(parents=True, exist_ok=True)
-    return sorted(path for path in folder.iterdir() if path.suffix.lower() in IMAGE_EXTENSIONS and path.is_file())
+    return sorted(path for path in folder.rglob("*") if path.suffix.lower() in IMAGE_EXTENSIONS and path.is_file())
 
 
 class DisplayController:
