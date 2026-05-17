@@ -17,6 +17,11 @@ from a Mac.
 Run a local controller that can update the display from a folder, a selected
 image, or a generated clock image.
 
+The currently reliable transport is **Chrome Web Bluetooth**. The native macOS
+BLE helper can connect to the display, but the panel does not currently honor
+its writes consistently, so it is kept as an experimental path while the browser
+controller is the recommended way to operate the display.
+
 ## Local Controller
 
 Create a virtual environment and install dependencies:
@@ -77,8 +82,8 @@ Backends:
 - `dry-run`: prints packet info without touching Bluetooth.
 - `serial`: diagnostic only; the macOS pseudo-port did not visibly update the
   display in local tests.
-- `native-ble`: macOS CoreBluetooth backend. This is the working path on this
-  Mac.
+- `native-ble`: macOS CoreBluetooth backend. It can connect and is kept for
+  experimentation, but Chrome Web Bluetooth is the reliable transport right now.
 
 `device.save: true` is the recommended default. It uses the same save-style
 command wrapper as the browser app so the image stays on the panel instead of
@@ -100,6 +105,34 @@ Send one image through the native BLE backend:
 ```sh
 .venv/bin/python scripts/displayd.py --config config.single.example.yaml --backend native-ble --once
 ```
+
+## Browser Controller
+
+Start the local Web Bluetooth controller server:
+
+```sh
+.venv/bin/python scripts/web_displayd.py --config config.local.yaml
+```
+
+Open this in Chrome:
+
+```text
+http://127.0.0.1:8765
+```
+
+Then:
+
+1. click `Connect`;
+2. choose `MI Matrix Display`;
+3. use `Send now`, `Start`, or `Power off` from the local page.
+
+The browser controller reads the same `config.local.yaml`, image folder, and
+clock settings as the Python controller. Keep the Chrome tab open while a mode
+is running, because the browser tab is the Bluetooth transport.
+
+Animated GIFs are sent through the display's slideshow mode. The controller uses
+up to the first 8 frames, matching the frame count used by the reference web
+implementation.
 
 ## Run at Login
 
@@ -161,6 +194,9 @@ The uninstall script intentionally leaves project files, `config.local.yaml`,
 logs, virtual environments, and build artifacts in place so it does not delete
 anything you may want to inspect or reuse.
 
+The browser controller does not install any system files. Stop it with `Ctrl-C`
+in the terminal where `scripts/web_displayd.py` is running.
+
 ## Image Assets
 
 The carousel scans `paths.image_folder` recursively, so image packs can live in
@@ -205,8 +241,8 @@ python3 scripts/serial_command.py power-on
 ```
 
 The known working implementations use BLE GATT rather than the macOS serial
-pseudo-port. Python BLE currently crashes on this macOS setup, so the local
-controller uses the native CoreBluetooth helper above.
+pseudo-port. Python BLE currently crashes on this macOS setup, so the browser
+controller is the recommended path while the native helper remains experimental.
 
 Python BLE diagnostic scripts are kept here for comparison:
 
