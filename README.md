@@ -60,6 +60,12 @@ launchctl kickstart -k gui/$(id -u)/org.arielrivera.8bit-display
 The installer creates `config.local.yaml` from `config.local.example.yaml` if it
 does not already exist.
 
+##That's it !
+
+You should be set on your mac.
+Continue reading if you want more details or if you want to get the web based GUI up and running.
+
+
 ## Local Controller
 
 Create a virtual environment and install dependencies:
