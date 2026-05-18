@@ -82,14 +82,21 @@ Backends:
 - `dry-run`: prints packet info without touching Bluetooth.
 - `serial`: diagnostic only; the macOS pseudo-port did not visibly update the
   display in local tests.
-- `native-ble`: macOS CoreBluetooth backend. It can connect and is kept for
-  experimentation, but Chrome Web Bluetooth is the reliable transport right now.
+- `native-ble`: macOS CoreBluetooth backend. This is working for power,
+  temporary-image writes, and saved still-image writes on this Mac. The helper
+  enables notifications and intentionally paces writes to match the timing the
+  display expects.
 
-`device.save: true` is the recommended default. It uses the same save-style
-command wrapper as the browser app so the image stays on the panel instead of
-briefly freezing the currently saved animation and then letting that animation
-resume. Avoid very short carousel intervals in saved mode because each update
-writes to the display's stored image slot.
+`device.save: true` stores a still image on the panel so it remains visible after
+disconnecting. `device.save: false` sends a temporary image that appears briefly
+and then returns to whatever image is already stored on the panel.
+
+Verified native modes on this panel:
+
+- `carousel`: rotates saved still images from the configured folder.
+- `single`: watches one file and resends it when the file changes.
+- `clock`: updates on minute boundaries in both `digital` and `pixel-art`
+  styles.
 
 Build the native macOS BLE helper:
 
@@ -98,7 +105,8 @@ scripts/build_native.sh
 ```
 
 The helper is packaged as a small macOS `.app` so Bluetooth privacy permission
-works correctly. The first run may prompt for Bluetooth access.
+works correctly. It is marked as a background accessory app, so sends do not add
+an icon to the Dock. The first run may prompt for Bluetooth access.
 
 Send one image through the native BLE backend:
 
@@ -132,7 +140,8 @@ is running, because the browser tab is the Bluetooth transport.
 
 Animated GIFs are sent through the display's slideshow mode. The controller uses
 up to the first 8 frames, matching the frame count used by the reference web
-implementation.
+implementation. This works in both the browser controller and the native
+background service.
 
 ## Run at Login
 
@@ -141,6 +150,10 @@ Install the macOS LaunchAgent:
 ```sh
 scripts/install_launch_agent.sh
 ```
+
+Run this as your normal logged-in user, not with `sudo`. LaunchAgents belong to
+the user's GUI domain; using `sudo` can leave root-owned files behind and prevent
+the agent from loading correctly.
 
 The installer:
 

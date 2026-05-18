@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+  echo "Do not run this installer with sudo."
+  echo "LaunchAgents must be installed in your logged-in user's GUI domain."
+  exit 1
+fi
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LABEL="org.arielrivera.8bit-display"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
@@ -58,8 +64,8 @@ cat > "$PLIST" <<PLIST
 PLIST
 
 launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true
-launchctl bootstrap "gui/$(id -u)" "$PLIST"
 launchctl enable "gui/$(id -u)/$LABEL"
+launchctl bootstrap "gui/$(id -u)" "$PLIST"
 launchctl kickstart -k "gui/$(id -u)/$LABEL"
 
 echo "Installed and started $LABEL"

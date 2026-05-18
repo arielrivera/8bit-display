@@ -9,8 +9,15 @@ paths:
   state_file: "./state.json"
 
 mode:
-  type: "carousel"
-  carousel_seconds: 300
-  single_image: "./images/current.png"
-  clock_style: "digital"
+  type: "clock"
+  carousel_seconds: 120
+  single_image: "./images/heart.png"
+  clock_style: "pixel-art"
   clock_24h: false
+
+# mode:
+#   type: "carousel"
+#   carousel_seconds: 120
+#   single_image: "./images/heart.png"
+#   clock_style: "pixel-art"
+#   clock_24h: false

@@ -9,6 +9,24 @@ static CBUUID *WriteUUID(void) {
     return [CBUUID UUIDWithString:@"0000ffd1-0000-1000-8000-00805f9b34fb"];
 }
 
+static CBUUID *NotifyUUID(void) {
+    return [CBUUID UUIDWithString:@"0000ffd2-0000-1000-8000-00805f9b34fb"];
+}
+
+static CBUUID *NotifyDescriptorUUID(void) {
+    return [CBUUID UUIDWithString:@"00002902-0000-1000-8000-00805f9b34fb"];
+}
+
+static NSData *ResetPacket(void) {
+    static NSData *packet = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        const uint8_t bytes[] = { 0xbc, 0x00, 0x15, 0x15, 0x55 };
+        packet = [NSData dataWithBytes:bytes length:sizeof(bytes)];
+    });
+    return packet;
+}
+
 static NSString *LogPath = nil;
 
 static void LogLine(NSString *format, ...) {
@@ -72,11 +90,18 @@ static NSArray<NSData *> *LoadPackets(NSString *path, NSError **error) {
 @property(nonatomic, strong) CBCentralManager *manager;
 @property(nonatomic, strong) dispatch_queue_t managerQueue;
 @property(nonatomic, strong) CBPeripheral *peripheral;
+@property(nonatomic, strong) CBCharacteristic *writeCharacteristic;
+@property(nonatomic, strong) CBCharacteristic *notifyCharacteristic;
 @property(nonatomic, strong) NSArray<NSData *> *packets;
 @property(nonatomic, copy) NSString *targetName;
 @property(nonatomic, assign) BOOL shouldSend;
 @property(nonatomic, assign) NSTimeInterval delay;
 @property(nonatomic, assign) BOOL didFinish;
+@property(nonatomic, assign) NSUInteger packetIndex;
+@property(nonatomic, assign) BOOL sendStarted;
+@property(nonatomic, assign) BOOL sendCompleted;
+@property(nonatomic, assign) BOOL waitingForWriteReady;
+@property(nonatomic, assign) BOOL didConnect;
 @end
 
 @implementation BLEPacketWriter
@@ -110,7 +135,9 @@ static NSArray<NSData *> *LoadPackets(NSString *path, NSError **error) {
         _manager = [[CBCentralManager alloc] initWithDelegate:self queue:_managerQueue];
         LogLine(@"Central manager initialized; initial state %ld", (long)_manager.state);
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(20 * NSEC_PER_SEC)), _managerQueue, ^{
-            [self finish:@"Timed out while scanning/connecting" code:1];
+            if (!self.didConnect) {
+                [self finish:@"Timed out while scanning/connecting" code:1];
+            }
         });
     }
     return self;
@@ -162,6 +189,7 @@ static NSArray<NSData *> *LoadPackets(NSString *path, NSError **error) {
 }
 
 - (void)centralManager:(CBCentralManager *)central didConnectPeripheral:(CBPeripheral *)peripheral {
+    self.didConnect = YES;
     LogLine(@"Connected. Discovering service.");
     [peripheral discoverServices:@[ ServiceUUID() ]];
 }
@@ -173,7 +201,7 @@ static NSArray<NSData *> *LoadPackets(NSString *path, NSError **error) {
     }
     for (CBService *service in peripheral.services) {
         if ([service.UUID isEqual:ServiceUUID()]) {
-            [peripheral discoverCharacteristics:@[ WriteUUID() ] forService:service];
+            [peripheral discoverCharacteristics:@[ WriteUUID(), NotifyUUID() ] forService:service];
             return;
         }
     }
@@ -189,17 +217,83 @@ didDiscoverCharacteristicsForService:(CBService *)service
     }
 
     CBCharacteristic *writeCharacteristic = nil;
+    CBCharacteristic *notifyCharacteristic = nil;
     for (CBCharacteristic *characteristic in service.characteristics) {
         if ([characteristic.UUID isEqual:WriteUUID()]) {
             writeCharacteristic = characteristic;
-            break;
+        } else if ([characteristic.UUID isEqual:NotifyUUID()]) {
+            notifyCharacteristic = characteristic;
         }
     }
     if (writeCharacteristic == nil) {
         [self finish:@"Write characteristic not found" code:1];
         return;
     }
+    self.writeCharacteristic = writeCharacteristic;
+    LogLine(
+        @"Write characteristic ready; max write without response %lu bytes; can send now: %@",
+        (unsigned long)[peripheral maximumWriteValueLengthForType:CBCharacteristicWriteWithoutResponse],
+        peripheral.canSendWriteWithoutResponse ? @"yes" : @"no"
+    );
 
+    if (notifyCharacteristic != nil) {
+        self.notifyCharacteristic = notifyCharacteristic;
+        LogLine(@"Discovering descriptors on %@", notifyCharacteristic.UUID.UUIDString);
+        [peripheral discoverDescriptorsForCharacteristic:notifyCharacteristic];
+        return;
+    }
+
+    LogLine(@"Notify characteristic not found; continuing without notifications");
+    [self beginSendingWhenReady];
+}
+
+- (void)peripheral:(CBPeripheral *)peripheral
+didDiscoverDescriptorsForCharacteristic:(CBCharacteristic *)characteristic
+             error:(NSError *)error {
+    if (error != nil) {
+        [self finish:[NSString stringWithFormat:@"Descriptor discovery failed: %@", error] code:1];
+        return;
+    }
+    CBDescriptor *notifyDescriptor = nil;
+    for (CBDescriptor *descriptor in characteristic.descriptors) {
+        if ([descriptor.UUID isEqual:NotifyDescriptorUUID()]) {
+            notifyDescriptor = descriptor;
+            break;
+        }
+    }
+    if (notifyDescriptor != nil) {
+        LogLine(@"Reading notification descriptor %@", notifyDescriptor.UUID.UUIDString);
+        [peripheral readValueForDescriptor:notifyDescriptor];
+        return;
+    }
+    LogLine(@"Notify descriptor not found; enabling notifications directly");
+    [peripheral setNotifyValue:YES forCharacteristic:characteristic];
+}
+
+- (void)peripheral:(CBPeripheral *)peripheral
+didUpdateValueForDescriptor:(CBDescriptor *)descriptor
+             error:(NSError *)error {
+    if (error != nil) {
+        [self finish:[NSString stringWithFormat:@"Descriptor read failed: %@", error] code:1];
+        return;
+    }
+    LogLine(@"Notification descriptor value read; enabling notifications");
+    [peripheral setNotifyValue:YES forCharacteristic:self.notifyCharacteristic];
+}
+
+- (void)peripheral:(CBPeripheral *)peripheral
+didUpdateNotificationStateForCharacteristic:(CBCharacteristic *)characteristic
+             error:(NSError *)error {
+    if (![characteristic.UUID isEqual:NotifyUUID()]) return;
+    if (error != nil) {
+        [self finish:[NSString stringWithFormat:@"Notification setup failed: %@", error] code:1];
+        return;
+    }
+    LogLine(@"Notifications enabled: %@", characteristic.isNotifying ? @"yes" : @"no");
+    [self beginSendingWhenReady];
+}
+
+- (void)beginSendingWhenReady {
     if (!self.shouldSend) {
         NSUInteger index = 1;
         for (NSData *packet in self.packets) {
@@ -215,14 +309,47 @@ didDiscoverCharacteristicsForService:(CBService *)service
         return;
     }
 
-    NSUInteger index = 1;
-    for (NSData *packet in self.packets) {
-        [peripheral writeValue:packet forCharacteristic:writeCharacteristic type:CBCharacteristicWriteWithoutResponse];
-        LogLine(@"Sent packet %lu/%lu: %lu bytes", (unsigned long)index, (unsigned long)self.packets.count, (unsigned long)packet.length);
-        [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:self.delay]];
-        index++;
+    if (self.sendStarted) return;
+    self.sendStarted = YES;
+    LogLine(@"Waiting 5.0 seconds before first write");
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), self.managerQueue, ^{
+        [self sendNextPacketWhenReady];
+    });
+}
+
+- (void)sendNextPacketWhenReady {
+    if (self.sendCompleted) return;
+    if (self.packetIndex >= self.packets.count) {
+        self.sendCompleted = YES;
+        LogLine(@"Waiting 5.0 seconds after final write");
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), self.managerQueue, ^{
+            [self finish:@"Done" code:0];
+        });
+        return;
     }
-    [self finish:@"Done" code:0];
+
+    if (!self.peripheral.canSendWriteWithoutResponse) {
+        LogLine(@"Peripheral not ready for write without response; waiting");
+        self.waitingForWriteReady = YES;
+        return;
+    }
+
+    self.waitingForWriteReady = NO;
+    NSData *packet = self.packets[self.packetIndex];
+    [self.peripheral writeValue:packet forCharacteristic:self.writeCharacteristic type:CBCharacteristicWriteWithoutResponse];
+    self.packetIndex += 1;
+    LogLine(@"Sent packet %lu/%lu: %lu bytes", (unsigned long)self.packetIndex, (unsigned long)self.packets.count, (unsigned long)packet.length);
+    NSTimeInterval delayAfterPacket = [packet isEqualToData:ResetPacket()] ? 0.5 : self.delay;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayAfterPacket * NSEC_PER_SEC)), self.managerQueue, ^{
+        [self sendNextPacketWhenReady];
+    });
+}
+
+- (void)peripheralIsReadyToSendWriteWithoutResponse:(CBPeripheral *)peripheral {
+    LogLine(@"Peripheral reported ready for write without response");
+    if (self.waitingForWriteReady) {
+        [self sendNextPacketWhenReady];
+    }
 }
 
 @end

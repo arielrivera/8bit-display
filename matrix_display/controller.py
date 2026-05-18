@@ -13,8 +13,8 @@ from PIL import Image
 from matrix_display.backends import DisplayBackend
 from matrix_display.clock import clock_image
 from matrix_display.config import AppConfig
-from matrix_display.image_tools import image_to_pixels, load_display_image
-from matrix_display.protocol import image_packets
+from matrix_display.image_tools import image_to_pixels, load_display_frames, load_display_image
+from matrix_display.protocol import image_packets, slideshow_packets
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
 
@@ -43,7 +43,18 @@ class DisplayController:
         self.backend.send_packets(packets)
         self.write_state(label)
 
+    def send_frames(self, frames: list[Image.Image], label: str) -> None:
+        pixels = [image_to_pixels(frame) for frame in frames]
+        packets = slideshow_packets(pixels, gamma=self.config.device.gamma, save=self.config.device.save)
+        self.backend.send_packets(packets)
+        self.write_state(label)
+
     def send_file(self, path: Path) -> None:
+        if path.suffix.lower() == ".gif":
+            frames = load_display_frames(path)
+            if len(frames) > 1:
+                self.send_frames(frames, str(path))
+                return
         self.send_image(load_display_image(path), str(path))
 
     def write_state(self, last_sent: str) -> None:

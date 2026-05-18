@@ -72,7 +72,7 @@ class NativeBLEBackend:
 
     app_path: Path = Path("build/BLEWritePackets.app")
     device_name: str = "MI Matrix Display"
-    packet_delay: float = 0.12
+    packet_delay: float = 0.05
     timeout: float = 30.0
 
     def send_packets(self, packets: list[bytes]) -> None:

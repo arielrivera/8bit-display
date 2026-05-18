@@ -37,12 +37,11 @@ RESET = packet(bytes([0x00, 0x15]))
 START_SLIDESHOW_MODE = packet(bytes([0x00, 0x12]))
 CLEAR_GRAFFITI_MODE = packet(bytes([0x00, 0x0D]))
 START_GRAFFITI_MODE = packet(bytes([0x00, 0x01]))
-# These two static-image commands are observed from the official-app capture.
-# Their final byte does not match the usual additive checksum helper.
-STATIC_IMAGE_WRITE_ENABLE = bytes.fromhex("bc0011f10355")
-STATIC_IMAGE_WRITE_DISABLE = bytes.fromhex("bc0011f20455")
+STATIC_IMAGE_WRITE_ENABLE = packet(bytes([0x00, 0x11, 0xF1]))
+STATIC_IMAGE_WRITE_DISABLE = packet(bytes([0x00, 0x11, 0xF2]))
 TEMP_IMAGE_WRITE_ENABLE = packet(bytes([0x0F, 0xF1, 0x08]))
 TEMP_IMAGE_WRITE_DISABLE = packet(bytes([0x0F, 0xF2, 0x08]))
+SLIDESHOW_MARKER = packet(bytes([0x02, 0x07, 0x3C]))
 
 
 def temp_image_chunk(chunk_index: int, rgb: bytes) -> bytes:
@@ -56,6 +55,17 @@ def temp_image_chunk(chunk_index: int, rgb: bytes) -> bytes:
     if len(rgb) != RGB_BYTES_PER_CHUNK:
         raise ValueError(f"rgb chunk must be {RGB_BYTES_PER_CHUNK} bytes")
     return packet(bytes([0x0F, chunk_index]) + rgb)
+
+
+def slideshow_frame_chunk(frame_index: int, chunk_index: int, rgb: bytes) -> bytes:
+    """Build one slideshow-frame chunk packet."""
+    if not 1 <= frame_index <= CHUNK_COUNT:
+        raise ValueError(f"frame_index must be 1..{CHUNK_COUNT}")
+    if not 1 <= chunk_index <= CHUNK_COUNT:
+        raise ValueError(f"chunk_index must be 1..{CHUNK_COUNT}")
+    if len(rgb) != RGB_BYTES_PER_CHUNK:
+        raise ValueError(f"rgb chunk must be {RGB_BYTES_PER_CHUNK} bytes")
+    return packet(bytes([0x02, frame_index, chunk_index]) + rgb)
 
 
 def gamma_correct(value: int, gamma: float = 0.6) -> int:
@@ -98,11 +108,42 @@ def image_packets(
 
     packets.append(TEMP_IMAGE_WRITE_DISABLE)
     if save:
-        packets = (
-            [TEMP_IMAGE_WRITE_DISABLE, STATIC_IMAGE_WRITE_ENABLE]
-            + packets
-            + [STATIC_IMAGE_WRITE_DISABLE, START_SLIDESHOW_MODE]
-        )
+        packets = [RESET, STATIC_IMAGE_WRITE_ENABLE] + packets + [STATIC_IMAGE_WRITE_DISABLE]
+    return packets
+
+
+def slideshow_packets(
+    frames: Iterable[Iterable[tuple[int, int, int]]],
+    gamma: float = 0.6,
+    save: bool = False,
+) -> list[bytes]:
+    """Return packets that upload up to eight frames into slideshow memory."""
+    normalized_frames = [normalize_rgb_pixels(frame, gamma=gamma) for frame in frames]
+    if not normalized_frames:
+        raise ValueError("slideshow requires at least one frame")
+    if len(normalized_frames) > CHUNK_COUNT:
+        raise ValueError(f"slideshow supports at most {CHUNK_COUNT} frames")
+
+    frame_count = len(normalized_frames)
+    packets: list[bytes] = []
+    if save:
+        packets.extend([RESET, STATIC_IMAGE_WRITE_ENABLE])
+    packets.append(START_SLIDESHOW_MODE)
+
+    for frame_index, pixels in enumerate(normalized_frames, start=1):
+        packets.append(packet(bytes([0x02, 0xF1, frame_count])))
+        for chunk in range(CHUNK_COUNT):
+            start = chunk * PIXELS_PER_CHUNK
+            end = start + PIXELS_PER_CHUNK
+            rgb = bytes(channel for pixel in pixels[start:end] for channel in pixel)
+            packets.append(slideshow_frame_chunk(frame_index, chunk + 1, rgb))
+        if save and frame_index == frame_count:
+            packets.append(SLIDESHOW_MARKER)
+        packets.append(packet(bytes([0x02, 0xF2, frame_count])))
+
+    if save:
+        packets.append(STATIC_IMAGE_WRITE_DISABLE)
+    packets.append(START_SLIDESHOW_MODE)
     return packets
 
 

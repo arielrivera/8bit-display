@@ -14,6 +14,8 @@
   <string>1</string>
   <key>CFBundleShortVersionString</key>
   <string>1.0</string>
+  <key>LSUIElement</key>
+  <true/>
   <key>NSBluetoothAlwaysUsageDescription</key>
   <string>8bit-display uses Bluetooth to send images to the Matrix LED Display.</string>
   <key>NSBluetoothPeripheralUsageDescription</key>

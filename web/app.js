@@ -20,6 +20,7 @@ const state = {
   timer: null,
   config: null,
   imageIndex: 0,
+  trace: [],
 };
 
 const els = {
@@ -37,6 +38,7 @@ const els = {
   stop: document.querySelector("#stop"),
   powerOff: document.querySelector("#power-off"),
   powerOn: document.querySelector("#power-on"),
+  copyTrace: document.querySelector("#copy-trace"),
   preview: document.querySelector("#preview"),
   log: document.querySelector("#log"),
 };
@@ -44,6 +46,10 @@ const els = {
 function log(message) {
   els.log.textContent += `${new Date().toLocaleTimeString()} ${message}\n`;
   els.log.scrollTop = els.log.scrollHeight;
+}
+
+function hex(bytes) {
+  return Array.from(bytes).map((value) => value.toString(16).padStart(2, "0")).join(" ");
 }
 
 function checksum(bytes) {
@@ -141,8 +147,16 @@ async function loadImageToCanvas(url) {
 
 async function sendWrites(writes) {
   if (!state.writeCharacteristic) throw new Error("Display is not connected");
+  const startedAt = performance.now();
+  state.trace = [];
   for (const { payload, delayAfterMs } of writes) {
-    if (payload) await state.writeCharacteristic.writeValueWithoutResponse(payload);
+    if (payload) {
+      await state.writeCharacteristic.writeValueWithoutResponse(payload);
+      const elapsedMs = Math.round(performance.now() - startedAt);
+      const entry = `${String(elapsedMs).padStart(4, " ")} ms  ${hex(payload)}`;
+      state.trace.push(entry);
+      console.log(entry);
+    }
     await sleep(delayAfterMs);
   }
 }
@@ -275,6 +289,10 @@ els.start.addEventListener("click", () => {
 els.stop.addEventListener("click", stopLoop);
 els.powerOff.addEventListener("click", () => sendWrites([{ payload: POWER_OFF, delayAfterMs: 50 }]).then(() => log("power off sent")));
 els.powerOn.addEventListener("click", () => sendWrites([{ payload: POWER_ON, delayAfterMs: 50 }]).then(() => log("power on sent")));
+els.copyTrace.addEventListener("click", async () => {
+  await navigator.clipboard.writeText(state.trace.join("\n"));
+  log(`copied ${state.trace.length} trace lines`);
+});
 els.image.addEventListener("change", () => {
   const selected = state.images.find((item) => item.name === els.image.value);
   if (selected) loadImageToCanvas(selected.url);
