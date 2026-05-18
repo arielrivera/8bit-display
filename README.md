@@ -158,7 +158,7 @@ Send one image through the native BLE backend:
 .venv/bin/python scripts/displayd.py --config config.single.example.yaml --backend native-ble --once
 ```
 
-## Browser Controller
+## Web UI / Browser Controller
 
 Start the local Web Bluetooth controller server:
 
