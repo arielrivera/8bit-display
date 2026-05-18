@@ -17,10 +17,10 @@ from a Mac.
 Run a local controller that can update the display from a folder, a selected
 image, or a generated clock image.
 
-The currently reliable transport is **Chrome Web Bluetooth**. The native macOS
-BLE helper can connect to the display, but the panel does not currently honor
-its writes consistently, so it is kept as an experimental path while the browser
-controller is the recommended way to operate the display.
+The recommended unattended transport on macOS is the native CoreBluetooth
+backend, which now supports saved still images, animated GIF slideshows,
+carousel mode, selected-image mode, and generated clocks. A Chrome Web Bluetooth
+controller is also included as an interactive browser-based option.
 
 ## Local Controller
 
