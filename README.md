@@ -65,6 +65,34 @@ does not already exist.
 You should be set on your mac.
 Continue reading if you want more details or if you want to get the web based GUI up and running.
 
+## Web UI / Browser Controller
+
+Start the local Web Bluetooth controller server:
+
+```sh
+.venv/bin/python scripts/web_displayd.py --config config.local.yaml
+```
+
+Open this in Chrome:
+
+```text
+http://127.0.0.1:8765
+```
+
+Then:
+
+1. click `Connect`;
+2. choose `MI Matrix Display`;
+3. use `Send now`, `Start`, or `Power off` from the local page.
+
+The browser controller reads the same `config.local.yaml`, image folder, and
+clock settings as the Python controller. Keep the Chrome tab open while a mode
+is running, because the browser tab is the Bluetooth transport.
+
+Animated GIFs are sent through the display's slideshow mode. The controller uses
+up to the first 8 frames, matching the frame count used by the reference web
+implementation. This works in both the browser controller and the native
+background service.
 
 ## Local Controller
 
@@ -157,35 +185,6 @@ Send one image through the native BLE backend:
 ```sh
 .venv/bin/python scripts/displayd.py --config config.single.example.yaml --backend native-ble --once
 ```
-
-## Web UI / Browser Controller
-
-Start the local Web Bluetooth controller server:
-
-```sh
-.venv/bin/python scripts/web_displayd.py --config config.local.yaml
-```
-
-Open this in Chrome:
-
-```text
-http://127.0.0.1:8765
-```
-
-Then:
-
-1. click `Connect`;
-2. choose `MI Matrix Display`;
-3. use `Send now`, `Start`, or `Power off` from the local page.
-
-The browser controller reads the same `config.local.yaml`, image folder, and
-clock settings as the Python controller. Keep the Chrome tab open while a mode
-is running, because the browser tab is the Bluetooth transport.
-
-Animated GIFs are sent through the display's slideshow mode. The controller uses
-up to the first 8 frames, matching the frame count used by the reference web
-implementation. This works in both the browser controller and the native
-background service.
 
 ## Run at Login
 
