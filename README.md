@@ -22,6 +22,44 @@ backend, which now supports saved still images, animated GIF slideshows,
 carousel mode, selected-image mode, and generated clocks. A Chrome Web Bluetooth
 controller is also included as an interactive browser-based option.
 
+## Quick Start
+
+0. Clone the repository and enter it:
+
+```sh
+git clone https://github.com/arielrivera/8bit-display.git
+cd 8bit-display
+```
+
+1. Create the Python environment and install dependencies:
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python3 -m pip install -r requirements.txt
+```
+
+2. Install the macOS background service:
+
+```sh
+scripts/install_launch_agent.sh
+```
+
+3. Edit `config.local.yaml` for the mode you want: `carousel`, `single`, or
+   `clock`.
+
+4. Put your images in `images/`, or set `mode.single_image` to the file you want
+   shown.
+
+5. After changing `config.local.yaml`, restart the controller:
+
+```sh
+launchctl kickstart -k gui/$(id -u)/org.arielrivera.8bit-display
+```
+
+The installer creates `config.local.yaml` from `config.local.example.yaml` if it
+does not already exist.
+
 ## Local Controller
 
 Create a virtual environment and install dependencies:
