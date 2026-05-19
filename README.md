@@ -92,7 +92,9 @@ is running, because the browser tab is the Bluetooth transport.
 Animated GIFs are sent through the display's slideshow mode. The controller uses
 up to the first 8 frames, matching the frame count used by the reference web
 implementation. This works in both the browser controller and the native
-background service.
+background service. Shorter animations are repeated to fill the display's 8
+slideshow slots, which avoids dark/blank slots on animations with fewer than 8
+source frames.
 
 ## Local Controller
 
@@ -302,6 +304,26 @@ in the terminal where `scripts/web_displayd.py` is running.
 The carousel scans `paths.image_folder` recursively, so image packs can live in
 subfolders under `images/`.
 
+Imported/downloaded pixel-art packs can be converted into display-ready 16x16
+assets with:
+
+```sh
+.venv/bin/python scripts/import_pixel_art_assets.py ~/Downloads/newimages
+```
+
+The converted files are written to `images/imported/`:
+
+- `piskel/`: `.piskel` projects converted to GIF plus PNG frames.
+- `animated_gifs/`: normalized GIFs resized for the display.
+- `animated_sheets/`: GIFs generated from horizontal sprite sheets.
+- `tiles_16x16/`: individual 16x16 tiles extracted from larger PNG sheets.
+
+`.aseprite` files are not decoded directly unless Aseprite's command-line tools
+are installed. Most asset packs also include exported PNG sheets, and the
+importer converts those when present. Check
+`images/imported/CONVERSION_SUMMARY.txt` after each import for skipped files and
+license notes copied from the source pack.
+
 `images/rpg_potions_16x16/` contains extracted 16x16 RPG food and potion tiles
 from a CC BY-SA 3.0 asset pack by Bonsaiheldin. See
 `images/rpg_potions_16x16/CREDITS.txt` for attribution and license details.
@@ -364,9 +386,13 @@ python3 scripts/send_test_pattern.py --pattern solid --color 255,0,0 --send
 
 1. Validate that the serial port accepts the same packets documented by the BLE
    implementations.
-2. Add PNG/JPG import and resize to 16x16.
-3. Add animation/slideshow support.
-4. Add scheduling or a small desktop/web controller.
+2. Use Apple's PacketLogger from Additional Tools for Xcode to capture and
+   compare successful Chrome Web Bluetooth writes against native CoreBluetooth
+   writes. This was necessary to find transport-level differences such as
+   notification setup and packet pacing.
+3. Add PNG/JPG import and resize to 16x16.
+4. Add animation/slideshow support.
+5. Add scheduling or a small desktop/web controller.
 
 ## References
 

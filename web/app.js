@@ -151,7 +151,8 @@ function slideshowFrameWrites(imageData, imageIndex, frameCount, gamma, save) {
 }
 
 async function sendSlideshow(urls) {
-  const frameCount = Math.min(urls.length, 8);
+  const sourceUrls = urls.slice(0, 8);
+  const frameCount = 8;
   const writes = [];
   if (state.config.device.save) {
     writes.push({ payload: RESET, delayAfterMs: 500 });
@@ -159,7 +160,7 @@ async function sendSlideshow(urls) {
   }
   writes.push({ payload: START_SLIDESHOW, delayAfterMs: 500 });
   for (let index = 0; index < frameCount; index += 1) {
-    const data = await loadImageToCanvas(urls[index]);
+    const data = await loadImageToCanvas(sourceUrls[index % sourceUrls.length]);
     writes.push(...slideshowFrameWrites(data, index + 1, frameCount, state.config.device.gamma, state.config.device.save));
     writes.push({ payload: null, delayAfterMs: 50 });
   }

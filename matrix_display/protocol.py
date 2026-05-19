@@ -117,14 +117,15 @@ def slideshow_packets(
     gamma: float = 0.6,
     save: bool = False,
 ) -> list[bytes]:
-    """Return packets that upload up to eight frames into slideshow memory."""
-    normalized_frames = [normalize_rgb_pixels(frame, gamma=gamma) for frame in frames]
-    if not normalized_frames:
+    """Return packets that upload frames into the display's eight slideshow slots."""
+    source_frames = [normalize_rgb_pixels(frame, gamma=gamma) for frame in frames]
+    if not source_frames:
         raise ValueError("slideshow requires at least one frame")
-    if len(normalized_frames) > CHUNK_COUNT:
+    if len(source_frames) > CHUNK_COUNT:
         raise ValueError(f"slideshow supports at most {CHUNK_COUNT} frames")
 
-    frame_count = len(normalized_frames)
+    normalized_frames = [source_frames[index % len(source_frames)] for index in range(CHUNK_COUNT)]
+    frame_count = CHUNK_COUNT
     packets: list[bytes] = []
     if save:
         packets.extend([RESET, STATIC_IMAGE_WRITE_ENABLE])
