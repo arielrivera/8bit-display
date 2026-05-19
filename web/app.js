@@ -221,6 +221,12 @@ async function sendClock() {
     style: els.clockStyle.value,
     clock_24h: String(els.clock24h.checked),
   });
+  const animation = await fetch(`/api/clock-animation?${params.toString()}`).then((response) => response.json());
+  if (animation.animated) {
+    await sendSlideshow(animation.urls);
+    log(`sent ${els.clockStyle.value} clock (${animation.frames} frames)`);
+    return;
+  }
   const data = await loadImageToCanvas(`/api/clock.png?${params.toString()}`);
   await sendWrites(imageWrites(data, state.config.device.gamma, state.config.device.save));
   log(`sent ${els.clockStyle.value} clock`);

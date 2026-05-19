@@ -11,7 +11,7 @@ from pathlib import Path
 from PIL import Image
 
 from matrix_display.backends import DisplayBackend
-from matrix_display.clock import clock_image
+from matrix_display.clock import clock_frames
 from matrix_display.config import AppConfig
 from matrix_display.image_tools import image_to_pixels, load_display_frames, load_display_image
 from matrix_display.protocol import image_packets, slideshow_packets
@@ -80,8 +80,12 @@ class DisplayController:
             return
         if mode == "clock":
             now = datetime.now()
-            image = clock_image(self.config.mode.clock_style, now, clock_24h=self.config.mode.clock_24h)
-            self.send_image(image, f"clock:{self.config.mode.clock_style}:{now:%Y-%m-%d %H:%M}")
+            frames = clock_frames(self.config.mode.clock_style, now, clock_24h=self.config.mode.clock_24h)
+            label = f"clock:{self.config.mode.clock_style}:{now:%Y-%m-%d %H:%M}"
+            if len(frames) > 1:
+                self.send_frames(frames, label)
+            else:
+                self.send_image(frames[0], label)
             return
         raise ValueError(f"unknown mode {mode!r}")
 
@@ -136,7 +140,11 @@ class DisplayController:
             minute_key = now.strftime("%Y-%m-%d %H:%M")
             if minute_key != last_minute:
                 print(f"clock: sending {minute_key}", flush=True)
-                image = clock_image(self.config.mode.clock_style, now, clock_24h=self.config.mode.clock_24h)
-                self.send_image(image, f"clock:{self.config.mode.clock_style}:{minute_key}")
+                frames = clock_frames(self.config.mode.clock_style, now, clock_24h=self.config.mode.clock_24h)
+                label = f"clock:{self.config.mode.clock_style}:{minute_key}"
+                if len(frames) > 1:
+                    self.send_frames(frames, label)
+                else:
+                    self.send_image(frames[0], label)
                 last_minute = minute_key
             time.sleep(1)

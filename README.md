@@ -141,6 +141,12 @@ Modes are configured in `config.local.yaml`:
 - `single`: sends `mode.single_image` and re-sends when that file changes.
 - `clock`: generates a new clock image each minute.
 
+Clock styles:
+
+- `digital`: two-line digital clock.
+- `digital-bounce`: animated single-line digital clock with a colored colon.
+- `pixel-art`: stylized analog clock.
+
 Example configs:
 
 - `config.example.yaml`: carousel mode.

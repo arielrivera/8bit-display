@@ -23,6 +23,8 @@ DIGITS: dict[str, tuple[str, ...]] = {
     "9": ("111", "101", "111", "001", "111"),
 }
 
+COLON: tuple[str, ...] = ("0", "1", "0", "1", "0")
+
 
 def _draw_digit(draw: ImageDraw.ImageDraw, digit: str, x: int, y: int, color: tuple[int, int, int]) -> None:
     for row_i, row in enumerate(DIGITS[digit]):
@@ -35,6 +37,13 @@ def _draw_number(draw: ImageDraw.ImageDraw, value: int, x: int, y: int, color: t
     text = f"{value:02d}"
     _draw_digit(draw, text[0], x, y, color)
     _draw_digit(draw, text[1], x + 4, y, color)
+
+
+def _draw_glyph(draw: ImageDraw.ImageDraw, glyph: tuple[str, ...], x: int, y: int, color: tuple[int, int, int]) -> None:
+    for row_i, row in enumerate(glyph):
+        for col_i, value in enumerate(row):
+            if value == "1":
+                draw.point((x + col_i, y + row_i), fill=color)
 
 
 def digital_clock(now: datetime, clock_24h: bool = False) -> Image.Image:
@@ -51,6 +60,36 @@ def digital_clock(now: datetime, clock_24h: bool = False) -> Image.Image:
         draw.point((7, 7), fill=(255, 220, 60))
         draw.point((8, 8), fill=(255, 220, 60))
     return image
+
+
+def digital_bounce_frames(now: datetime, clock_24h: bool = False) -> list[Image.Image]:
+    """Generate a compact single-line clock that bounces vertically."""
+    hour = now.hour if clock_24h else (now.hour % 12 or 12)
+    hour_text = f"{hour:02d}" if clock_24h else str(hour)
+    text = f"{hour_text}:{now.minute:02d}"
+    y_positions = [2, 4, 6, 8, 10, 8, 6, 4]
+    frames: list[Image.Image] = []
+
+    for y in y_positions:
+        image = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+        draw = ImageDraw.Draw(image)
+
+        if len(text) == 5:
+            # HH:MM fits by letting the colored colon touch both digit pairs.
+            _draw_glyph(draw, DIGITS[text[0]], 0, y, (80, 220, 255))
+            _draw_glyph(draw, DIGITS[text[1]], 4, y, (80, 220, 255))
+            _draw_glyph(draw, COLON, 7, y, (255, 180, 70))
+            _draw_glyph(draw, DIGITS[text[3]], 8, y, (80, 220, 255))
+            _draw_glyph(draw, DIGITS[text[4]], 12, y, (80, 220, 255))
+        else:
+            # H:MM has room for a little breathing space around the hour.
+            _draw_glyph(draw, DIGITS[text[0]], 1, y, (80, 220, 255))
+            _draw_glyph(draw, COLON, 5, y, (255, 180, 70))
+            _draw_glyph(draw, DIGITS[text[2]], 7, y, (80, 220, 255))
+            _draw_glyph(draw, DIGITS[text[3]], 11, y, (80, 220, 255))
+
+        frames.append(image)
+    return frames
 
 
 def pixel_art_clock(now: datetime) -> Image.Image:
@@ -83,7 +122,14 @@ def pixel_art_clock(now: datetime) -> Image.Image:
 def clock_image(style: str, now: datetime, clock_24h: bool = False) -> Image.Image:
     if style == "digital":
         return digital_clock(now, clock_24h=clock_24h)
+    if style == "digital-bounce":
+        return digital_bounce_frames(now, clock_24h=clock_24h)[0]
     if style == "pixel-art":
         return pixel_art_clock(now)
     raise ValueError(f"unknown clock style {style!r}")
 
+
+def clock_frames(style: str, now: datetime, clock_24h: bool = False) -> list[Image.Image]:
+    if style == "digital-bounce":
+        return digital_bounce_frames(now, clock_24h=clock_24h)
+    return [clock_image(style, now, clock_24h=clock_24h)]

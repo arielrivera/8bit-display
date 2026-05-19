@@ -20,7 +20,7 @@ from PIL import Image, ImageSequence
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from matrix_display.clock import clock_image
+from matrix_display.clock import clock_frames, clock_image
 from matrix_display.config import AppConfig, load_config
 from matrix_display.controller import list_images
 
@@ -182,6 +182,51 @@ class DisplayWebHandler(SimpleHTTPRequestHandler):
             image = clock_image(style, datetime.now(), clock_24h=clock_24h)
             buffer = BytesIO()
             image.save(buffer, format="PNG")
+            self._send_bytes(buffer.getvalue(), "image/png")
+            return
+
+        if parsed.path == "/api/clock-animation":
+            params = parse_qs(parsed.query)
+            style = params.get("style", [self.config.mode.clock_style])[0]
+            clock_24h = params.get("clock_24h", [str(self.config.mode.clock_24h)])[0].lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+            frames = clock_frames(style, datetime.now(), clock_24h=clock_24h)
+            self._send_json(
+                {
+                    "animated": len(frames) > 1,
+                    "frames": len(frames),
+                    "urls": [
+                        f"/api/clock-frame.png?style={style}&clock_24h={str(clock_24h).lower()}&index={index}"
+                        for index in range(len(frames))
+                    ],
+                }
+            )
+            return
+
+        if parsed.path == "/api/clock-frame.png":
+            params = parse_qs(parsed.query)
+            style = params.get("style", [self.config.mode.clock_style])[0]
+            clock_24h = params.get("clock_24h", [str(self.config.mode.clock_24h)])[0].lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+            try:
+                index = int(params.get("index", ["0"])[0])
+            except ValueError:
+                self.send_error(HTTPStatus.BAD_REQUEST)
+                return
+            frames = clock_frames(style, datetime.now(), clock_24h=clock_24h)
+            if not 0 <= index < len(frames):
+                self.send_error(HTTPStatus.NOT_FOUND)
+                return
+            buffer = BytesIO()
+            frames[index].save(buffer, format="PNG")
             self._send_bytes(buffer.getvalue(), "image/png")
             return
 

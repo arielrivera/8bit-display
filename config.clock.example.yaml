@@ -10,5 +10,5 @@ paths:
 
 mode:
   type: "clock"
-  clock_style: "digital"
+  clock_style: "digital-bounce"
   clock_24h: false
