@@ -4,70 +4,175 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>8bit-display</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=advanced-settings" />
   </head>
   <body>
     <main>
-      <header>
-        <h1>8bit-display</h1>
+      <header class="app-header">
+        <div>
+          <h1>8bit-display</h1>
+          <p>Matrix Display controller</p>
+        </div>
         <div class="actions">
           <button id="connect">Connect</button>
           <button id="disconnect" disabled>Disconnect</button>
         </div>
       </header>
 
-      <section class="status">
+      <section class="status-strip">
         <span id="device-status">Not connected</span>
-        <span id="mode-status"></span>
+        <span id="mode-status">Idle</span>
+        <span id="service-pill">Service unknown</span>
       </section>
 
-      <section class="controls">
-        <label>
-          Mode
-          <select id="mode">
-            <option value="carousel">Carousel</option>
-            <option value="single">Single image</option>
-            <option value="clock">Clock</option>
-          </select>
-        </label>
-        <label>
-          Seconds
-          <input id="seconds" type="number" min="5" step="5" value="300" />
-        </label>
-        <label>
-          Image
-          <select id="image"></select>
-        </label>
-        <label>
-          Clock style
-          <select id="clock-style">
-            <option value="digital">Digital</option>
-            <option value="pixel-art">Pixel art</option>
-          </select>
-        </label>
-        <label class="checkbox">
-          <input id="clock-24h" type="checkbox" />
-          24-hour
-        </label>
+      <nav class="tabs" aria-label="Controller sections">
+        <button class="tab active" id="tab-display" data-tab="display">Display</button>
+        <button class="tab" id="tab-advanced" data-tab="advanced">Advanced Settings</button>
+      </nav>
+
+      <section class="tab-panel active" id="panel-display">
+        <section class="controls">
+          <label>
+            Mode
+            <select id="mode">
+              <option value="carousel">Carousel</option>
+              <option value="single">Single image</option>
+              <option value="clock">Clock</option>
+            </select>
+          </label>
+          <label>
+            Seconds
+            <input id="seconds" type="number" min="5" step="5" value="300" />
+          </label>
+          <label class="wide">
+            Image
+            <select id="image"></select>
+          </label>
+          <label>
+            Clock style
+            <select id="clock-style">
+              <option value="digital">Digital</option>
+              <option value="pixel-art">Pixel art</option>
+            </select>
+          </label>
+          <label class="checkbox">
+            <input id="clock-24h" type="checkbox" />
+            24-hour
+          </label>
+        </section>
+
+        <section class="actions transport">
+          <button id="send-now" disabled>Send now</button>
+          <button id="start" disabled>Start</button>
+          <button id="stop" disabled>Stop</button>
+          <button id="power-off" disabled>Power off</button>
+          <button id="power-on" disabled>Power on</button>
+          <button id="copy-trace">Copy trace</button>
+        </section>
+
+        <section class="display-grid">
+          <div class="preview-wrap">
+            <canvas id="preview" width="16" height="16"></canvas>
+          </div>
+          <section>
+            <h2>Session Log</h2>
+            <pre id="log"></pre>
+          </section>
+        </section>
       </section>
 
-      <section class="actions transport">
-        <button id="send-now" disabled>Send now</button>
-        <button id="start" disabled>Start</button>
-        <button id="stop" disabled>Stop</button>
-        <button id="power-off" disabled>Power off</button>
-        <button id="power-on" disabled>Power on</button>
-        <button id="copy-trace">Copy trace</button>
-      </section>
+      <section class="tab-panel" id="panel-advanced">
+        <section class="advanced-grid">
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Service</h2>
+              <button id="refresh-service">Refresh</button>
+            </div>
+            <dl class="status-list">
+              <div>
+                <dt>State</dt>
+                <dd id="service-state">Unknown</dd>
+              </div>
+              <div>
+                <dt>PID</dt>
+                <dd id="service-pid">-</dd>
+              </div>
+              <div>
+                <dt>Runs</dt>
+                <dd id="service-runs">-</dd>
+              </div>
+              <div>
+                <dt>LaunchAgent</dt>
+                <dd id="service-plist">-</dd>
+              </div>
+            </dl>
+            <div class="button-grid">
+              <button id="service-install">Install</button>
+              <button id="service-start">Start</button>
+              <button id="service-restart">Restart</button>
+              <button id="service-stop">Stop</button>
+              <button id="service-uninstall" class="danger">Uninstall</button>
+            </div>
+            <pre id="service-output" class="mini-log"></pre>
+          </section>
 
-      <section class="preview-wrap">
-        <canvas id="preview" width="16" height="16"></canvas>
-      </section>
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Project Paths</h2>
+              <button id="refresh-project">Refresh</button>
+            </div>
+            <dl class="path-list">
+              <div>
+                <dt>Project</dt>
+                <dd id="path-root">-</dd>
+              </div>
+              <div>
+                <dt>Config</dt>
+                <dd id="path-config">-</dd>
+              </div>
+              <div>
+                <dt>Images</dt>
+                <dd id="path-images">-</dd>
+              </div>
+              <div>
+                <dt>Logs</dt>
+                <dd id="path-logs">-</dd>
+              </div>
+            </dl>
+          </section>
+        </section>
 
-      <section>
-        <pre id="log"></pre>
+        <section class="panel config-panel">
+          <div class="panel-heading">
+            <h2>Configuration YAML</h2>
+            <div class="actions">
+              <button id="reload-config">Reload</button>
+              <button id="save-config">Save</button>
+              <button id="save-restart">Save & Restart</button>
+            </div>
+          </div>
+          <p class="hint">Changes are written to <code>config.local.yaml</code>. Restart the service to apply them.</p>
+          <textarea id="config-editor" spellcheck="false"></textarea>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <h2>Service Logs</h2>
+            <button id="refresh-logs">Refresh logs</button>
+          </div>
+          <div class="log-grid">
+            <section>
+              <h3>Output</h3>
+              <pre id="stdout-log" class="system-log"></pre>
+            </section>
+            <section>
+              <h3>Errors</h3>
+              <pre id="stderr-log" class="system-log"></pre>
+            </section>
+          </div>
+        </section>
       </section>
     </main>
-    <script src="/app.js"></script>
+    <script src="/app.js?v=advanced-settings"></script>
   </body>
 </html>

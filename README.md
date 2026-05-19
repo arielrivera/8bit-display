@@ -186,6 +186,44 @@ Send one image through the native BLE backend:
 .venv/bin/python scripts/displayd.py --config config.single.example.yaml --backend native-ble --once
 ```
 
+## Browser Controller
+
+Start the local Web Bluetooth controller server:
+
+```sh
+.venv/bin/python scripts/web_displayd.py --config config.local.yaml
+```
+
+Open this in Chrome:
+
+```text
+http://127.0.0.1:8765
+```
+
+Then:
+
+1. click `Connect`;
+2. choose `MI Matrix Display`;
+3. use `Send now`, `Start`, or `Power off` from the local page.
+
+The browser controller reads the same `config.local.yaml`, image folder, and
+clock settings as the Python controller. Keep the Chrome tab open while a mode
+is running, because the browser tab is the Bluetooth transport.
+
+The `Advanced Settings` tab can manage the local macOS service without leaving
+the browser:
+
+- view LaunchAgent status, PID, run count, and install state;
+- install, start, stop, restart, or uninstall the service;
+- edit `config.local.yaml` with validation before saving;
+- save the config and restart the service in one step;
+- inspect project paths and recent service logs.
+
+Animated GIFs are sent through the display's slideshow mode. The controller uses
+up to the first 8 frames, matching the frame count used by the reference web
+implementation. This works in both the browser controller and the native
+background service.
+
 ## Run at Login
 
 Install the macOS LaunchAgent:

@@ -41,11 +41,50 @@ const els = {
   copyTrace: document.querySelector("#copy-trace"),
   preview: document.querySelector("#preview"),
   log: document.querySelector("#log"),
+  servicePill: document.querySelector("#service-pill"),
+  serviceState: document.querySelector("#service-state"),
+  servicePid: document.querySelector("#service-pid"),
+  serviceRuns: document.querySelector("#service-runs"),
+  servicePlist: document.querySelector("#service-plist"),
+  serviceOutput: document.querySelector("#service-output"),
+  refreshService: document.querySelector("#refresh-service"),
+  serviceInstall: document.querySelector("#service-install"),
+  serviceStart: document.querySelector("#service-start"),
+  serviceRestart: document.querySelector("#service-restart"),
+  serviceStop: document.querySelector("#service-stop"),
+  serviceUninstall: document.querySelector("#service-uninstall"),
+  refreshProject: document.querySelector("#refresh-project"),
+  pathRoot: document.querySelector("#path-root"),
+  pathConfig: document.querySelector("#path-config"),
+  pathImages: document.querySelector("#path-images"),
+  pathLogs: document.querySelector("#path-logs"),
+  reloadConfig: document.querySelector("#reload-config"),
+  saveConfig: document.querySelector("#save-config"),
+  saveRestart: document.querySelector("#save-restart"),
+  configEditor: document.querySelector("#config-editor"),
+  refreshLogs: document.querySelector("#refresh-logs"),
+  stdoutLog: document.querySelector("#stdout-log"),
+  stderrLog: document.querySelector("#stderr-log"),
 };
 
 function log(message) {
   els.log.textContent += `${new Date().toLocaleTimeString()} ${message}\n`;
   els.log.scrollTop = els.log.scrollHeight;
+}
+
+function setOutput(element, text) {
+  element.textContent = text || "";
+  element.scrollTop = element.scrollHeight;
+}
+
+async function apiJson(url, options = {}) {
+  const response = await fetch(url, {
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || response.statusText);
+  return payload;
 }
 
 function hex(bytes) {
@@ -255,17 +294,103 @@ function setConnected(connected) {
   els.powerOn.disabled = !connected;
 }
 
+function setServiceBusy(busy) {
+  [
+    els.serviceInstall,
+    els.serviceStart,
+    els.serviceRestart,
+    els.serviceStop,
+    els.serviceUninstall,
+    els.refreshService,
+  ].forEach((button) => {
+    button.disabled = busy;
+  });
+}
+
+async function refreshServiceStatus() {
+  const status = await apiJson("/api/service/status");
+  els.serviceState.textContent = status.state;
+  els.servicePid.textContent = status.pid || "-";
+  els.serviceRuns.textContent = status.runs || "-";
+  els.servicePlist.textContent = status.plist_exists ? "Installed" : "Missing";
+  els.servicePill.textContent = `Service: ${status.state}`;
+  els.servicePill.style.borderColor = status.state === "running" ? "rgba(77, 124, 56, 0.55)" : "rgba(179, 75, 63, 0.45)";
+}
+
+async function runServiceAction(action) {
+  setServiceBusy(true);
+  setOutput(els.serviceOutput, `Running ${action}...`);
+  try {
+    const result = await apiJson(`/api/service/${action}`, { method: "POST", body: "{}" });
+    setOutput(
+      els.serviceOutput,
+      [`${action}: ${result.ok ? "ok" : "failed"} (${result.returncode})`, result.stdout, result.stderr]
+        .filter(Boolean)
+        .join("\n"),
+    );
+    await refreshServiceStatus();
+    await refreshLogs();
+  } finally {
+    setServiceBusy(false);
+  }
+}
+
+async function refreshProjectInfo() {
+  const project = await apiJson("/api/project");
+  els.pathRoot.textContent = project.root;
+  els.pathConfig.textContent = project.config;
+  els.pathImages.textContent = project.image_folder;
+  els.pathLogs.textContent = project.logs;
+}
+
+async function loadConfigFile() {
+  const config = await apiJson("/api/config-file");
+  els.configEditor.value = config.text;
+}
+
+async function saveConfigFile() {
+  const result = await apiJson("/api/config-file", {
+    method: "POST",
+    body: JSON.stringify({ text: els.configEditor.value }),
+  });
+  await loadAppData();
+  setOutput(els.serviceOutput, result.message || "Configuration saved");
+}
+
+async function saveConfigAndRestart() {
+  await saveConfigFile();
+  await runServiceAction("restart");
+}
+
+async function refreshLogs() {
+  const logs = await apiJson("/api/logs?lines=120");
+  setOutput(els.stdoutLog, logs.stdout);
+  setOutput(els.stderrLog, logs.stderr);
+}
+
+function setupTabs() {
+  document.querySelectorAll(".tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.remove("active"));
+      tab.classList.add("active");
+      document.querySelector(`#panel-${tab.dataset.tab}`).classList.add("active");
+    });
+  });
+}
+
 function sleep(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-async function boot() {
+async function loadAppData() {
   state.config = await fetch("/api/config").then((response) => response.json());
   state.images = await fetch("/api/images").then((response) => response.json());
   els.mode.value = state.config.mode.type;
   els.seconds.value = state.config.mode.carousel_seconds;
   els.clockStyle.value = state.config.mode.clock_style;
   els.clock24h.checked = state.config.mode.clock_24h;
+  els.image.replaceChildren();
   for (const image of state.images) {
     const option = document.createElement("option");
     option.value = image.name;
@@ -277,6 +402,12 @@ async function boot() {
     els.image.value = state.images.some((image) => image.name === desired) ? desired : state.images[0].name;
     await loadImageToCanvas(state.images[0].url);
   }
+}
+
+async function boot() {
+  setupTabs();
+  await loadAppData();
+  await Promise.all([refreshServiceStatus(), refreshProjectInfo(), loadConfigFile(), refreshLogs()]);
 }
 
 els.connect.addEventListener("click", () => connect().catch((error) => log(error.message)));
@@ -293,6 +424,20 @@ els.copyTrace.addEventListener("click", async () => {
   await navigator.clipboard.writeText(state.trace.join("\n"));
   log(`copied ${state.trace.length} trace lines`);
 });
+els.refreshService.addEventListener("click", () => refreshServiceStatus().catch((error) => setOutput(els.serviceOutput, error.message)));
+els.serviceInstall.addEventListener("click", () => runServiceAction("install").catch((error) => setOutput(els.serviceOutput, error.message)));
+els.serviceStart.addEventListener("click", () => runServiceAction("start").catch((error) => setOutput(els.serviceOutput, error.message)));
+els.serviceRestart.addEventListener("click", () => runServiceAction("restart").catch((error) => setOutput(els.serviceOutput, error.message)));
+els.serviceStop.addEventListener("click", () => runServiceAction("stop").catch((error) => setOutput(els.serviceOutput, error.message)));
+els.serviceUninstall.addEventListener("click", () => {
+  const confirmed = window.confirm("Uninstall the LaunchAgent? Project files and config are left in place.");
+  if (confirmed) runServiceAction("uninstall").catch((error) => setOutput(els.serviceOutput, error.message));
+});
+els.refreshProject.addEventListener("click", () => refreshProjectInfo().catch((error) => setOutput(els.serviceOutput, error.message)));
+els.reloadConfig.addEventListener("click", () => loadConfigFile().catch((error) => setOutput(els.serviceOutput, error.message)));
+els.saveConfig.addEventListener("click", () => saveConfigFile().catch((error) => setOutput(els.serviceOutput, error.message)));
+els.saveRestart.addEventListener("click", () => saveConfigAndRestart().catch((error) => setOutput(els.serviceOutput, error.message)));
+els.refreshLogs.addEventListener("click", () => refreshLogs().catch((error) => setOutput(els.serviceOutput, error.message)));
 els.image.addEventListener("change", () => {
   const selected = state.images.find((item) => item.name === els.image.value);
   if (selected) loadImageToCanvas(selected.url);

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import subprocess
 import sys
 from datetime import datetime
 from http import HTTPStatus
@@ -26,6 +27,8 @@ from matrix_display.controller import list_images
 
 class DisplayWebHandler(SimpleHTTPRequestHandler):
     config: AppConfig
+    config_path: Path
+    label = "org.arielrivera.8bit-display"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT / "web"), **kwargs)
@@ -50,6 +53,42 @@ class DisplayWebHandler(SimpleHTTPRequestHandler):
                         "clock_style": self.config.mode.clock_style,
                         "clock_24h": self.config.mode.clock_24h,
                     },
+                }
+            )
+            return
+
+        if parsed.path == "/api/service/status":
+            self._send_json(self._service_status())
+            return
+
+        if parsed.path == "/api/config-file":
+            self._send_json(
+                {
+                    "path": str(self.config_path),
+                    "text": self.config_path.read_text(encoding="utf-8") if self.config_path.exists() else "",
+                }
+            )
+            return
+
+        if parsed.path == "/api/logs":
+            params = parse_qs(parsed.query)
+            lines = int(params.get("lines", ["80"])[0])
+            self._send_json(
+                {
+                    "stdout": self._tail(ROOT / "logs" / "displayd.out.log", lines),
+                    "stderr": self._tail(ROOT / "logs" / "displayd.err.log", lines),
+                }
+            )
+            return
+
+        if parsed.path == "/api/project":
+            self._send_json(
+                {
+                    "root": str(ROOT),
+                    "config": str(self.config_path),
+                    "image_folder": str((ROOT / self.config.paths.image_folder).resolve()),
+                    "launch_agent": str(Path.home() / "Library" / "LaunchAgents" / f"{self.label}.plist"),
+                    "logs": str(ROOT / "logs"),
                 }
             )
             return
@@ -148,8 +187,46 @@ class DisplayWebHandler(SimpleHTTPRequestHandler):
 
         super().do_GET()
 
-    def _send_json(self, payload: object) -> None:
-        self._send_bytes(json.dumps(payload).encode("utf-8"), "application/json")
+    def do_POST(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/config-file":
+            payload = self._read_json()
+            text = str(payload.get("text", ""))
+            old_text = self.config_path.read_text(encoding="utf-8") if self.config_path.exists() else ""
+            self.config_path.write_text(text, encoding="utf-8")
+            try:
+                self.__class__.config = load_config(self.config_path)
+            except Exception as exc:
+                self.config_path.write_text(old_text, encoding="utf-8")
+                self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json({"ok": True, "message": "Configuration saved"})
+            return
+
+        if parsed.path.startswith("/api/service/"):
+            action = parsed.path.removeprefix("/api/service/")
+            commands = {
+                "install": [str(ROOT / "scripts" / "install_launch_agent.sh")],
+                "uninstall": [str(ROOT / "scripts" / "uninstall_launch_agent.sh")],
+                "stop": ["launchctl", "bootout", f"gui/{self._uid()}", str(self._plist_path())],
+                "restart": ["launchctl", "kickstart", "-k", f"gui/{self._uid()}/{self.label}"],
+            }
+            if action == "start":
+                result = self._run_many(
+                    [
+                        ["launchctl", "enable", f"gui/{self._uid()}/{self.label}"],
+                        ["launchctl", "bootstrap", f"gui/{self._uid()}", str(self._plist_path())],
+                    ]
+                )
+            elif action in commands:
+                result = self._run(commands[action])
+            else:
+                self.send_error(HTTPStatus.NOT_FOUND)
+                return
+            self._send_json({"ok": result.returncode == 0, "action": action, **self._result_payload(result)})
+            return
+
+        self.send_error(HTTPStatus.NOT_FOUND)
 
     def _send_file(self, path: Path) -> None:
         if not path.is_file():
@@ -165,13 +242,78 @@ class DisplayWebHandler(SimpleHTTPRequestHandler):
             return None
         return target
 
-    def _send_bytes(self, body: bytes, content_type: str) -> None:
-        self.send_response(HTTPStatus.OK)
+    def _send_bytes(self, body: bytes, content_type: str, status: HTTPStatus = HTTPStatus.OK) -> None:
+        self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
+
+    def _read_json(self) -> dict[str, object]:
+        length = int(self.headers.get("Content-Length", "0"))
+        if length == 0:
+            return {}
+        return json.loads(self.rfile.read(length).decode("utf-8"))
+
+    def _send_json(self, payload: object, status: HTTPStatus = HTTPStatus.OK) -> None:
+        self._send_bytes(json.dumps(payload).encode("utf-8"), "application/json", status=status)
+
+    def _service_status(self) -> dict[str, object]:
+        result = self._run(["launchctl", "print", f"gui/{self._uid()}/{self.label}"])
+        text = result.stdout + result.stderr
+        state = "running" if "\n\tstate = running" in text else "not loaded"
+        return {
+            "label": self.label,
+            "state": state,
+            "loaded": result.returncode == 0,
+            "plist_exists": self._plist_path().exists(),
+            "pid": self._extract_value(text, "pid"),
+            "runs": self._extract_value(text, "runs"),
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+
+    def _run(self, command: list[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
+
+    def _run_many(self, commands: list[list[str]]) -> subprocess.CompletedProcess[str]:
+        stdout = []
+        stderr = []
+        last = subprocess.CompletedProcess(commands[-1], 0, "", "")
+        for command in commands:
+            last = self._run(command)
+            stdout.append(last.stdout)
+            stderr.append(last.stderr)
+            if last.returncode != 0:
+                break
+        return subprocess.CompletedProcess(commands[-1], last.returncode, "".join(stdout), "".join(stderr))
+
+    def _result_payload(self, result: subprocess.CompletedProcess[str]) -> dict[str, object]:
+        return {
+            "returncode": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+
+    def _tail(self, path: Path, lines: int) -> str:
+        if not path.exists():
+            return ""
+        content = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        return "\n".join(content[-max(1, min(lines, 500)):])
+
+    def _plist_path(self) -> Path:
+        return Path.home() / "Library" / "LaunchAgents" / f"{self.label}.plist"
+
+    def _uid(self) -> int:
+        return int(subprocess.run(["id", "-u"], text=True, capture_output=True, check=True).stdout.strip())
+
+    def _extract_value(self, text: str, key: str) -> str | None:
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith(f"{key} = "):
+                return stripped.removeprefix(f"{key} = ")
+        return None
 
 
 def main() -> int:
@@ -183,6 +325,7 @@ def main() -> int:
 
     config = load_config(args.config)
     DisplayWebHandler.config = config
+    DisplayWebHandler.config_path = args.config if args.config.is_absolute() else ROOT / args.config
 
     server = ThreadingHTTPServer((args.host, args.port), DisplayWebHandler)
     print(f"web-displayd: http://{args.host}:{args.port}", flush=True)
