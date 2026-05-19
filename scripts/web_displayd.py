@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT))
 from matrix_display.clock import clock_frames, clock_image
 from matrix_display.config import AppConfig, load_config
 from matrix_display.controller import list_images
+from matrix_display.image_tools import load_display_frames
 
 
 class DisplayWebHandler(SimpleHTTPRequestHandler):
@@ -35,6 +36,10 @@ class DisplayWebHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format: str, *args) -> None:
         print(format % args, flush=True)
+
+    def end_headers(self) -> None:
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -158,15 +163,12 @@ class DisplayWebHandler(SimpleHTTPRequestHandler):
             except ValueError:
                 self.send_error(HTTPStatus.BAD_REQUEST)
                 return
-            with Image.open(target) as image:
-                frame_count = getattr(image, "n_frames", 1)
-                if not 0 <= index < frame_count:
-                    self.send_error(HTTPStatus.NOT_FOUND)
-                    return
-                image.seek(index)
-                frame = image.convert("RGBA")
-                buffer = BytesIO()
-                frame.save(buffer, format="PNG")
+            frames = load_display_frames(target)
+            if not 0 <= index < len(frames):
+                self.send_error(HTTPStatus.NOT_FOUND)
+                return
+            buffer = BytesIO()
+            frames[index].save(buffer, format="PNG")
             self._send_bytes(buffer.getvalue(), "image/png")
             return
 
@@ -291,7 +293,6 @@ class DisplayWebHandler(SimpleHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
